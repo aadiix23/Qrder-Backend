@@ -109,10 +109,99 @@ exports.login = async (req, res) => {
             { expiresIn: "1d" }
         );
 
-        return res.status(200).json({ message: "Login Sucessful" })
+        return res.status(200).json({ message: "Login Sucessful",token})
 
 
     } catch (error) {
         return res.status(500).json({ message: "Server Error", error: error.message })
     }
 }
+
+exports.resendOtp = async(req,res)=>{
+    try {
+        const {email} = req.body;
+        const user = await  User.findOne({email});
+        if(!user){
+            return res.status(400).json({message:"User Not Found"})
+        }
+        if(user.isverified){
+            return res.status(400).json({message:"User Already Verified"})
+        }
+        const otp = Math.floor(100000 + Math.random() * 900000);
+        user.otp = otp;
+        user.otpExpiry = Date.now() + 5 * 60 * 1000;
+        await user.save();
+        await sendEmail(user.email, "Verify Your Email", `Your OTP is ${otp}`);
+
+        return res.status(201).json({
+            message: "OTP Sent Successfully",
+            user: {
+                id: user._id,
+                email: user.email,
+                roles: user.roles
+            }
+        });
+
+
+    } catch (error) {
+        return res.status(500).json({ message: "Server Error", error: error.message });
+    }
+}
+
+exports.forgotPassword = async (req, res) => {
+    try {
+        const { email } = req.body;
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(404).json({ message: "User Not Found" });
+        }
+        if (!user.isverified) {
+            return res.status(400).json({ message: "User Email Is Not Verified" });
+        }
+
+        const otp = Math.floor(100000 + Math.random() * 900000);
+        user.otp = otp;
+        user.otpExpiry = Date.now() + 5 * 60 * 1000;
+        await user.save();
+
+        await sendEmail(user.email, "Password Reset", `Your OTP for Password Reset is ${otp}`);
+
+        return res.status(200).json({ message: "OTP Sent Successfully" });
+    } catch (error) {
+        return res.status(500).json({ message: "Server Error", error: error.message });
+    }
+};
+
+exports.resetPassword = async (req, res) => {
+    try {
+        const { email, otp, newPassword } = req.body;
+
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(404).json({ message: "User Not Found" });
+        }
+
+        // Verify OTP matches
+        if (user.otp !== otp) {
+            return res.status(400).json({ message: "Invalid OTP" });
+        }
+
+        // Check OTP expiry
+        if (user.otpExpiry < Date.now()) {
+            return res.status(400).json({ message: "OTP Expired" });
+        }
+
+        // Hash new password
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(newPassword, salt);
+
+        // Clear OTP fields
+        user.otp = null;
+        user.otpExpiry = null;
+        await user.save();
+
+        return res.status(200).json({ message: "Password Reset Successful" });
+    } catch (error) {
+        return res.status(500).json({ message: "Server Error", error: error.message });
+    }
+};
