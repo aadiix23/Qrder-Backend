@@ -1,7 +1,7 @@
 const User = require("../models/user");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
-const sendEmail = require("../utils/sendEmail");
+const sendEmail = require("../../../utils/sendEmail");
 const { validationResult } = require("express-validator");
 
 exports.register = async (req, res) => {
@@ -109,7 +109,7 @@ exports.login = async (req, res) => {
             { expiresIn: "1d" }
         );
 
-        return res.status(200).json({ message: "Login Sucessful",token})
+        return res.status(200).json({ message: "Login Sucessful", token })
 
 
     } catch (error) {
@@ -117,15 +117,15 @@ exports.login = async (req, res) => {
     }
 }
 
-exports.resendOtp = async(req,res)=>{
+exports.resendOtp = async (req, res) => {
     try {
-        const {email} = req.body;
-        const user = await  User.findOne({email});
-        if(!user){
-            return res.status(400).json({message:"User Not Found"})
+        const { email } = req.body;
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(400).json({ message: "User Not Found" })
         }
-        if(user.isverified){
-            return res.status(400).json({message:"User Already Verified"})
+        if (user.isverified) {
+            return res.status(400).json({ message: "User Already Verified" })
         }
         const otp = Math.floor(100000 + Math.random() * 900000);
         user.otp = otp;
